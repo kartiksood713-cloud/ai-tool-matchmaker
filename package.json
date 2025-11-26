@@ -14,5 +14,10 @@
     "exa-js": "latest",
     "@pinecone-database/pinecone": "latest",
     "openai": "4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/react": "latest",
+    "@types/node": "latest"
   }
 }
