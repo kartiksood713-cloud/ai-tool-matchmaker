@@ -1,60 +1,110 @@
-/* simple styling */
-* {
-  box-sizing: border-box;
+/* ===========================
+   GLOBAL COLORS (Botfather)
+   =========================== */
+:root {
+  --bg-black: #000000;
+  --text-white: #ffffff;
+  --accent-brown: #8b5e3c; /* subtle Godfather brown */
+  --bubble-grey: #1c1c1c;
+  --bubble-dark: #0f0f0f;
 }
 
+/* Reset & defaults */
 body {
   margin: 0;
-  background: #0b0f19;
-  color: white;
-  font-family: sans-serif;
+  padding: 0;
+  background: var(--bg-black);
+  color: var(--text-white);
+  font-family: 'Inter', sans-serif;
 }
 
 .chat-container {
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 20px;
-  background: #111827;
-  border-radius: 12px;
-  border: 1px solid #374151;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
 }
 
-.chat-window {
-  height: 400px;
+.chat-box {
+  height: 65vh;
   overflow-y: auto;
-  padding: 10px;
-  background: #0f172a;
-  border-radius: 8px;
-  border: 1px solid #475569;
-  margin-bottom: 10px;
+  padding: 20px;
+  background: var(--bubble-dark);
+  border: 1px solid #1a1a1a;
+  border-radius: 12px;
 }
 
-.msg-user {
-  color: #93c5fd;
+/* Chat bubbles */
+.message {
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  max-width: 75%;
+  line-height: 1.5;
+  border-radius: 10px;
+  font-size: 15px;
 }
 
-.msg-ai {
-  color: #6ee7b7;
+.user {
+  background: var(--accent-brown);
+  color: var(--bg-black);
+  margin-left: auto;
 }
 
-.chat-input-row {
+.bot {
+  background: var(--bubble-grey);
+  color: var(--text-white);
+  margin-right: auto;
+}
+
+/* Input area */
+.input-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.chat-input {
+input.chat-input {
   flex: 1;
-  padding: 10px;
+  padding: 14px;
   border-radius: 8px;
-  border: 1px solid #475569;
-  background: #111827;
-  color: white;
+  border: 1px solid #333;
+  background: #111;
+  color: var(--text-white);
+  outline: none;
 }
 
-.chat-button {
-  padding: 10px 15px;
-  border-radius: 8px;
-  background: #3b82f6;
+input.chat-input:focus {
+  border-color: var(--accent-brown);
+}
+
+.send-button {
+  padding: 0 28px;
+  background: var(--accent-brown);
+  color: var(--bg-black);
   border: none;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.send-button:hover {
+  background: #a06c45;
+}
+
+/* Title */
+.bot-title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--accent-brown);
+  margin-bottom: 24px;
+}
+
+/* Minimal scrollbars */
+.chat-box::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-box::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
 }
