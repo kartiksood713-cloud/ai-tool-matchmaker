@@ -16,101 +16,92 @@ export async function POST(req: Request) {
 
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
-    // ---------- EMBEDDING ----------
+    // =========================
+    // 1) PINECONE VECTOR SEARCH
+    // =========================
     const embedding = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: query
     });
 
-    // ---------- PINECONE QUERY ----------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
-      topK: 10,
+      topK: 5,
       includeMetadata: true
     });
 
-    // Extract CSV rows
-    const csvRows = pineRes.matches.map((m: any) => m.metadata);
+    const pineFormatted = pineRes.matches.map((m: any, i: number) => {
+      const md = m.metadata;
+      return `
+${i + 1}. **${md.Chatbot_Name || "Tool"}**
+- **Use Case:** ${md.UseCase || "N/A"}
+- **Description:** ${md.Description || "N/A"}
+- **Category:** ${md.Category || "N/A"}
+- **Website:** ${md.Website || "N/A"}
+`;
+    }).join("\n");
 
-    // Convert CSV rows to Markdown table
-    let table = "";
-    if (csvRows.length > 0) {
-      const columns = Object.keys(csvRows[0]);
-
-      const header = `| # | ${columns.join(" | ")} |`;
-      const separator = `|---|${columns.map(() => "---").join("|")}|`;
-      const rows = csvRows
-        .map((row: any, i: number) => {
-          const vals = columns.map((col) => row[col] || "");
-          return `| ${i + 1} | ${vals.join(" | ")} |`;
-        })
-        .join("\n");
-
-      table = `${header}\n${separator}\n${rows}`;
-    }
-
-    // ---------- EXA QUERY ----------
+    // =========================
+    // 2) EXA SEARCH RESULTS
+    // =========================
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
       type: "neural",
-      useAutoprompt: true,
+      useAutoprompt: true
     });
 
-    const exaText = exaRes.results
-      .map((r: any) => {
-        const highlights = r.highlights?.map((h: any) => h.text).join(" | ") || "";
-        return `• ${highlights}\n${r.text || ""}`;
-      })
-      .join("\n\n");
+    const exaFormatted = exaRes.results.map((r: any, i: number) => {
+      const highlights = r.highlights?.map((h: any) => h.text).join(" | ") || "";
+      return `
+${i + 1}. **${r.title || "Web Result"}**
+${highlights || r.text?.slice(0, 200) || ""}
+${r.url ? `URL: ${r.url}` : ""}
+`;
+    }).join("\n");
 
-    // ---------- FINAL PROMPT (COLAB STYLE) ----------
-    const prompt = `
-You are an AI assistant. 
-You MUST answer EXACTLY in the following format, identical to the Google Colab notebook output:
+    // =========================
+    // 3) MAIN SUMMARY ANSWER
+    // =========================
+    const summaryPrompt = `
+You are an expert business analyst.
 
----
+USER QUESTION:
+"${query}"
 
-**Main Answer Section (Exa + CSV synthesis):**
-Write a clean, structured answer with:
-- Bold section headers
-- Numbered use cases
-- Bullet points for trends
-- No table here
-- Write paragraphs using Exa insights + CSV tool descriptions
+You must follow this EXACT format:
 
----
+====================
+SECTION 1 — CSV-Based Insights (Top Matches)
+(You will NOT explain, only summarize insights from the CSV-Pinecone results.)
 
-**EXA WEB RESULTS:**
-Print bullet points of raw Exa snippets exactly like the notebook.
+${pineFormatted}
 
----
+====================
+SECTION 2 — Main Answer (Dynamic, Topic-Aware)
+Provide a clean, neutral, business-style explanation answering the user's question.
+Do NOT mention Pinecone or EXA.
+Do NOT mention metadata.
+Write only a useful expert answer.
 
-**PINECONE CSV RESULTS (Table Format):**
-Print a Markdown table of all CSV metadata rows retrieved.
+====================
+SECTION 3 — Web Insights (EXA)
+Summaries of the web search results (use bullet points or numbered points):
 
----
+${exaFormatted}
 
-USER QUERY:
-${query}
+====================
 
-EXA SNIPPETS:
-${exaText}
-
-CSV ROWS (structured):
-${JSON.stringify(csvRows, null, 2)}
-
----
-
-Now generate the final answer EXACTLY in the above notebook format.
+Now write the final response using this structure.
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3
+      messages: [{ role: "user", content: summaryPrompt }]
     });
 
-    return NextResponse.json({ answer: completion.choices[0].message?.content });
+    return NextResponse.json({
+      answer: completion.choices[0].message?.content
+    });
 
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
