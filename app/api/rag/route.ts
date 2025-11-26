@@ -17,10 +17,10 @@ export async function POST(req: Request) {
     // -------------------------
     // 0. NATURAL CONVERSATION
     // -------------------------
-    const greetings = ["hi", "hello", "hey", "yo", "hola", "sup"];
-    if (greetings.includes(query.toLowerCase().trim())) {
+    const casual = ["hi", "hello", "hey", "yo", "hola", "sup"];
+    if (casual.includes(query.toLowerCase().trim())) {
       return NextResponse.json({
-        answer: "Hey! 👋 How can I help you today?"
+        answer: "Hey 👋! How can the Botfather assist you today?"
       });
     }
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     });
 
     // -------------------------
-    // 2. PINECONE (CSV KNOWLEDGE)
+    // 2. PINECONE → CLEAN BULLETS
     // -------------------------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
@@ -43,14 +43,18 @@ export async function POST(req: Request) {
       includeMetadata: true
     });
 
-    // Convert CSV rows → natural bullet points
-    const csvBullets = pineRes.matches.map((m: any) => {
-      const md = m.metadata;
-      return `• **${md.Chatbot_Name || "Tool"}** — ${md.Description || md.UseCase || "Relevant match from internal knowledge base."}`;
-    }).join("\n");
+    const csvBullets = pineRes.matches
+      .map((m: any) => {
+        const md = m.metadata;
+        return `
+• **${md.Chatbot_Name || "Tool"}**  
+  ${md.Description || md.UseCase || "Relevant internal knowledge."}
+`;
+      })
+      .join("\n");
 
     // -------------------------
-    // 3. EXA SEARCH (OPTIONAL CONTEXT)
+    // 3. EXA SEARCH → CLEAN BULLETS
     // -------------------------
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
@@ -58,36 +62,43 @@ export async function POST(req: Request) {
       useAutoprompt: true,
     });
 
-    const exaBullets = exaRes.results.map((r: any) => {
-      const highlights = r.highlights?.map((h: any) => h.text).join(" | ");
-      const snippet = highlights || r.text?.slice(0, 200) || "";
-      return `• ${snippet}`;
-    }).join("\n");
+    const exaBullets = exaRes.results
+      .map((r: any) => {
+        const highlights = r.highlights?.map((h: any) => h.text).join(" | ");
+        const snippet = highlights || r.text?.slice(0, 250) || "";
+        return `
+• ${snippet}
+`;
+      })
+      .join("\n");
 
     // -------------------------
-    // 4. FINAL GPT ANSWER (CONVERSATIONAL)
+    // 4. FINAL GPT ANSWER
     // -------------------------
     const llmPrompt = `
-You are a helpful business AI assistant.
+You are Botfather — a clean, classy, structured but conversational assistant.
+
+RULES FOR ALL ANSWERS:
+- NEVER output giant paragraphs.
+- ALWAYS break EXA and CSV items into bullet points.
+- ALWAYS leave a blank line between bullets.
+- Main answer can be conversational.
+- Use bullets only when needed.
+- Only use CSV/EXA if relevant. Ignore if not helpful.
 
 USER QUESTION:
 "${query}"
 
-Here is relevant internal CSV knowledge (primary source):
+-----------------------------------
+PRIMARY INTERNAL DATA (CSV → bullets):
 ${csvBullets}
 
-Here are external web insights from EXA (secondary source):
+-----------------------------------
+SECONDARY EXTERNAL DATA (EXA → bullets):
 ${exaBullets}
 
-TASK:
-Provide a **clean, natural conversational answer** using BOTH sources when relevant.
-- Use bullet points only when helpful.
-- DO NOT force sections.
-- DO NOT sound robotic.
-- You can mix insights smoothly.
-- If CSV data is irrelevant to the user's question, ignore it.
-- If EXA is irrelevant, ignore it.
-- Keep answers crisp, helpful, and human-like.
+-----------------------------------
+Now provide a clean, friendly, well-structured answer.
 `;
 
     const completion = await openai.chat.completions.create({
