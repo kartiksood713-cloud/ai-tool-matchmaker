@@ -16,66 +16,98 @@ export async function POST(req: Request) {
 
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
-    // ---------- OPENAI EMBEDDING ----------
+    // ---------- EMBEDDING ----------
     const embedding = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: query
     });
 
-    // ---------- PINECONE (CSV Retrieval) ----------
+    // ---------- PINECONE QUERY ----------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
-      topK: 8,
+      topK: 10,
       includeMetadata: true
     });
 
-    // CSV rows reconstructed as NATURAL LANGUAGE SENTENCES
-    const csvChunks = pineRes.matches.map((m: any) => {
-      const meta = m.metadata || {};
-      return Object.entries(meta)
-        .map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`)
-        .join(". ");
-    });
+    // Extract CSV rows
+    const csvRows = pineRes.matches.map((m: any) => m.metadata);
 
-    // ---------- EXA ----------
+    // Convert CSV rows to Markdown table
+    let table = "";
+    if (csvRows.length > 0) {
+      const columns = Object.keys(csvRows[0]);
+
+      const header = `| # | ${columns.join(" | ")} |`;
+      const separator = `|---|${columns.map(() => "---").join("|")}|`;
+      const rows = csvRows
+        .map((row: any, i: number) => {
+          const vals = columns.map((col) => row[col] || "");
+          return `| ${i + 1} | ${vals.join(" | ")} |`;
+        })
+        .join("\n");
+
+      table = `${header}\n${separator}\n${rows}`;
+    }
+
+    // ---------- EXA QUERY ----------
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
       type: "neural",
       useAutoprompt: true,
     });
 
-    const exaChunks = exaRes.results.map((r: any) => {
-      const highlights = r.highlights?.map((h: any) => h.text).join(" | ") || "";
-      return `${highlights}. ${r.text || ""}`;
-    });
+    const exaText = exaRes.results
+      .map((r: any) => {
+        const highlights = r.highlights?.map((h: any) => h.text).join(" | ") || "";
+        return `• ${highlights}\n${r.text || ""}`;
+      })
+      .join("\n\n");
 
-    // ---------- HYBRID PROMPT ----------
+    // ---------- FINAL PROMPT (COLAB STYLE) ----------
     const prompt = `
-You are an AI assistant that MUST combine BOTH:
-1. Internal structured CSV knowledge (FIRST PRIORITY)
-2. Web research context (SECONDARY)
+You are an AI assistant. 
+You MUST answer EXACTLY in the following format, identical to the Google Colab notebook output:
 
-Respond with **accurate**, **practical**, **clean**, and **well-structured** answers.
+---
+
+**Main Answer Section (Exa + CSV synthesis):**
+Write a clean, structured answer with:
+- Bold section headers
+- Numbered use cases
+- Bullet points for trends
+- No table here
+- Write paragraphs using Exa insights + CSV tool descriptions
+
+---
+
+**EXA WEB RESULTS:**
+Print bullet points of raw Exa snippets exactly like the notebook.
+
+---
+
+**PINECONE CSV RESULTS (Table Format):**
+Print a Markdown table of all CSV metadata rows retrieved.
+
+---
 
 USER QUERY:
 ${query}
 
-CSV (INTERNAL BUSINESS KNOWLEDGE):
-${csvChunks.join("\n\n")}
+EXA SNIPPETS:
+${exaText}
 
-WEB (SUPPLEMENTAL EXTERNAL CONTEXT):
-${exaChunks.join("\n\n")}
+CSV ROWS (structured):
+${JSON.stringify(csvRows, null, 2)}
 
-Now provide the final answer using BOTH sources.
-Do NOT hallucinate. Use CSV as the primary source.
-If the CSV contains a tool name, description, use-case, or category — it MUST appear in the answer.
+---
+
+Now generate the final answer EXACTLY in the above notebook format.
 `;
 
-    // ---------- FINAL LLM COMPLETION ----------
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.4
+      temperature: 0.3
     });
 
     return NextResponse.json({ answer: completion.choices[0].message?.content });
