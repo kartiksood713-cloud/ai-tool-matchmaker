@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 export default function ChatUI() {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
 
   async function sendMessage() {
     if (!query.trim()) return;
@@ -26,72 +24,56 @@ export default function ChatUI() {
       });
 
       const data = await res.json();
-      const botText = data.answer || data.error || "No answer.";
-
-      const botMsg = { role: "assistant", content: botText };
+      const botMsg = { role: "assistant", content: data.answer || "No answer." };
       setMessages((prev) => [...prev, botMsg]);
-    } catch (err) {
-      const botMsg = { role: "assistant", content: "Request failed." };
-      setMessages((prev) => [...prev, botMsg]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Something went wrong." },
+      ]);
     } finally {
       setLoading(false);
-      // scroll to bottom after a short delay
       setTimeout(() => {
-        containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
-      }, 50);
+        boxRef.current?.scrollTo({
+          top: boxRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }, 100);
     }
   }
 
-  // Press Enter to send
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  function onKey(e: any) {
+    if (e.key === "Enter") sendMessage();
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 text-white">
-      <h1 className="text-3xl font-bold mb-4 text-center">Hybrid RAG Chatbot</h1>
+    <div className="chat-container">
+      <div className="bot-title">BOTFATHER</div>
 
-      <div
-        ref={containerRef}
-        className="bg-gray-900 border border-gray-700 rounded-xl p-4 h-[60vh] overflow-y-auto space-y-4"
-        aria-live="polite"
-      >
+      <div className="chat-box" ref={boxRef}>
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`p-3 rounded-lg max-w-[90%] ${msg.role === "user" ? "bg-blue-600 ml-auto" : "bg-gray-700 mr-auto"}`}
+            className={`message ${msg.role === "user" ? "user" : "bot"}`}
           >
-            {msg.role === "assistant" ? (
-              // Render assistant content as Markdown (so tables render)
-              <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert">
-                {msg.content}
-              </ReactMarkdown>
-            ) : (
-              <div>{msg.content}</div>
-            )}
+            {msg.content}
           </div>
         ))}
 
         {loading && (
-          <div className="p-3 rounded-lg bg-gray-700 w-fit mr-auto animate-pulse">
-            Thinking...
-          </div>
+          <div className="message bot">Typing...</div>
         )}
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="input-row">
         <input
+          className="chat-input"
+          placeholder="Ask Botfather anything..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Ask anything..."
-          className="flex-1 border border-gray-600 bg-gray-800 text-white p-3 rounded-lg"
+          onKeyDown={onKey}
         />
-
-        <button onClick={sendMessage} className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg">
+        <button className="send-button" onClick={sendMessage}>
           Send
         </button>
       </div>
