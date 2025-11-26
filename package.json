@@ -13,11 +13,8 @@
     "react-dom": "18.2.0",
     "exa-js": "latest",
     "@pinecone-database/pinecone": "latest",
-    "openai": "4.0.0"
-  },
-  "devDependencies": {
-    "typescript": "latest",
-    "@types/react": "latest",
-    "@types/node": "latest"
+    "openai": "4.0.0",
+    "react-markdown": "8.0.7",
+    "remark-gfm": "3.0.1"
   }
 }
