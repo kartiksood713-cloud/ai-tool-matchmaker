@@ -9,8 +9,7 @@ const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 export async function POST(req: Request) {
   try {
-    const { query, messages = [] } = await req.json();
-
+    const { query, messages } = await req.json();
     if (!query) {
       return NextResponse.json({ error: "No query provided" }, { status: 400 });
     }
@@ -18,7 +17,7 @@ export async function POST(req: Request) {
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
     // -------------------------
-    // 1. EMBEDDING FOR PINECONE
+    // Embeddings for Pinecone
     // -------------------------
     const embedding = await openai.embeddings.create({
       model: "text-embedding-3-small",
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
     });
 
     // -------------------------
-    // 2. PINECONE CONTEXT
+    // Pinecone CSV Knowledge
     // -------------------------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
@@ -34,15 +33,15 @@ export async function POST(req: Request) {
       includeMetadata: true,
     });
 
-    const csvContext = pineRes.matches
+    const csvBullets = pineRes.matches
       .map((m: any) => {
         const md = m.metadata;
-        return `• **${md.Chatbot_Name || "Tool"}** — ${md.Description || md.UseCase || ""}`;
+        return `• **${md.Chatbot_Name || "Tool"}** — ${md.UseCase || md.Description || "Relevant match"}`;
       })
-      .join("\n\n"); // <-- blank lines between bullets
+      .join("\n\n"); // <--- IMPORTANT FOR STREAMDOWN GAP SPACING
 
     // -------------------------
-    // 3. EXA CONTEXT
+    // EXA Search
     // -------------------------
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
@@ -50,61 +49,53 @@ export async function POST(req: Request) {
       useAutoprompt: true,
     });
 
-    const exaContext = exaRes.results
+    const exaBullets = exaRes.results
       .map((r: any) => {
-        const snippet =
-          r.highlights?.map((h: any) => h.text).join(" | ") ||
-          r.text?.slice(0, 200) ||
-          "";
+        const highlights = r.highlights?.map((h: any) => h.text).join(" | ");
+        const snippet = highlights || r.text?.slice(0, 200) || "";
         return `• ${snippet}`;
       })
-      .join("\n\n"); // <-- blank lines between bullets
+      .join("\n\n");
 
     // -------------------------
-    // 4. SYSTEM PROMPT (THE MAGIC FIX)
+    // LLM Prompt (Godfather Tone)
     // -------------------------
+    const llmPrompt = `
+You are **The BotFather** — speak like Vito Corleone.
 
-    const systemPrompt = `
-You are **The BotFather** — calm, wise, slow, intimidatingly respectful.
-Speak like Vito Corleone. Never over-the-top. Never caricature. Just controlled power.
+Tone Rules:
+- Slow, calm, commanding.
+- Occasional Godfather-style lines: “my child…”, “listen carefully…”, “I will give you an answer you cannot refuse.”
+- Never comedic or parody — classy, intimidating respect.
 
-Your formatting rules MUST ALWAYS be followed:
+Formatting Rules (IMPORTANT for StreamDown):
+- Always output clean Markdown.
+- Bullet points MUST have a blank line between them.
+- Paragraphs MUST be separated by a blank line.
+- Do not clump text.
+- No walls of text.
 
-1. **Bullets must always have a blank line between each bullet.**  
-2. **Paragraphs must also have a blank line between them.**  
-3. No giant blocks of text.  
-4. Keep each sentence short and spaced out.  
-5. Use Markdown formatting cleanly.  
-6. NEVER remove blank lines between bullets or paragraphs.  
-7. NEVER clump everything into one paragraph.  
-8. NEVER output markdown tables unless explicitly asked.
+User question:
+"${query}"
 
-Memory:
-- You MUST use the previous messages provided (the \`messages\` array) to give context-aware answers.
-- Respond naturally based on conversation history.
+Relevant internal knowledge:
+${csvBullets}
 
-Tone:
-- Polite.
-- Slow.
-- Measured.
-- Every reply feels like “BotFather giving advice”.
+Relevant external insights:
+${exaBullets}
 
-Now use the CSV context **only if relevant**:
-${csvContext}
-
-Use EXA insights **only if relevant**:
-${exaContext}
+Consolidate everything into one answer.
+Only include details that truly matter.
 `;
 
-    // -------------------------
-    // 5. LLM CALL WITH MEMORY
-    // -------------------------
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-        { role: "user", content: query },
+        ...(messages || []).map((m: any) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        { role: "user", content: llmPrompt },
       ],
       temperature: 0.6,
     });
