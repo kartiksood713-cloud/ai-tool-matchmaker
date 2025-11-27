@@ -1,145 +1,183 @@
-/* ========== Tailwind base + components + utilities ========== */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+"use client";
 
-/* =========================
-   GLOBAL COLORS (Botfather)
-   ========================= */
-:root{
-  --bg-black: #000000;
-  --text-white: #f2f2f2;
-  --accent-gold: #c49b66;
-  --accent-brown: #7b4a2b;
-  --bubble-charcoal: #1a1a1a;
-  --bubble-dark: #0f0f0f;
-  --muted: #777777;
-}
+import { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-/* Reset & defaults */
-html,body,#__next {
-  height: 100%;
-}
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg-black);
-  color: var(--text-white);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+const styles = {
+  page: {
+    background: "#000",
+    color: "#f2f2f2",
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    padding: "32px 16px",
+    boxSizing: "border-box" as const,
+    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
+  },
+  container: {
+    width: "100%",
+    maxWidth: 980,
+    display: "flex",
+    flexDirection: "column" as const,
+    background: "#0d0d0d",
+    borderRadius: 20,
+    border: "1px solid #1c1c1c",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+    overflow: "hidden",
+  },
+  header: {
+    paddingTop: 22,
+    paddingBottom: 8,
+    textAlign: "center" as const,
+  },
+  title: {
+    fontSize: 36,
+    letterSpacing: "0.25em",
+    color: "#c49b66",
+    margin: 0,
+    fontWeight: 800,
+  },
+  scroll: {
+    padding: 24,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 18,
+    maxHeight: "65vh",
+    overflowY: "auto" as const,
+  },
+  assistantBubble: {
+    background: "#1a1a1a",
+    color: "#eaeaea",
+    padding: "16px 20px",
+    borderRadius: 18,
+    maxWidth: "85%",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.6)",
+    lineHeight: 1.55,
+    fontSize: 16,
+    whiteSpace: "pre-wrap" as const,
+  },
+  userBubble: {
+    background: "#7b4a2b",
+    color: "#fff",
+    padding: "16px 20px",
+    borderRadius: 18,
+    maxWidth: "85%",
+    alignSelf: "flex-end" as const,
+    boxShadow: "0 8px 24px rgba(123,74,43,0.25)",
+    lineHeight: 1.55,
+    fontSize: 16,
+    whiteSpace: "pre-wrap" as const,
+  },
+  inputRow: {
+    display: "flex",
+    gap: 12,
+    padding: 16,
+    borderTop: "1px solid #1b1b1b",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #222",
+    background: "#0b0b0b",
+    color: "#f2f2f2",
+    fontSize: 15,
+    outline: "none",
+  },
+  sendBtn: {
+    padding: "10px 18px",
+    borderRadius: 12,
+    border: "none",
+    background: "#7b4a2b",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  footer: {
+    textAlign: "center" as const,
+    color: "#888",
+    padding: "10px 16px",
+    fontSize: 13,
+  },
+};
 
-/* Chat container shell */
-.chat-outer {
-  display: flex;
-  justify-content: center;
-  padding: 1.5rem;
-}
+export default function ChatUI() {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const chatRef = useRef<HTMLDivElement | null>(null);
 
-/* Chat card */
-.chat-card {
-  width: 100%;
-  max-width: 900px;
-  background: #0d0d0d;
-  border-radius: 1rem;
-  border: 1px solid #1c1c1c;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+  useEffect(() => {
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          "My child… I am The BotFather.\n\nI will give you a bot you cannot refuse.",
+      },
+    ]);
+  }, []);
 
-/* Chat scroll area */
-.chat-scroll {
-  padding: 1.5rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [messages]);
 
-/* Message bubbles */
-.msg {
-  max-width: 85%;
-  padding: 1rem 1.25rem;
-  border-radius: 1rem;
-  line-height: 1.55;
-  font-size: 1rem;
-  word-break: break-word;
-}
+  async function sendMessage() {
+    if (!input.trim()) return;
 
-.msg.assistant {
-  background: var(--bubble-charcoal);
-  color: var(--text-white);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
-}
+    const userMsg = { role: "user", content: input };
+    const updatedHistory = [...messages, userMsg];
+    setMessages(updatedHistory);
+    const raw = input;
+    setInput("");
 
-.msg.user {
-  background: var(--accent-brown);
-  color: #fff;
-  margin-left: auto;
-  box-shadow: 0 8px 24px rgba(123,74,43,0.25);
-}
+    try {
+      const res = await fetch("/api/rag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: raw, messages: updatedHistory }),
+      });
+      const data = await res.json();
+      const botReply = data.answer || "The BotFather speaks no further.";
+      setMessages((prev) => [...prev, { role: "assistant", content: botReply }]);
+    } catch (e) {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Network error." }]);
+    }
+  }
 
-/* Title area */
-.bot-title {
-  text-align: center;
-  font-size: 2.25rem;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  color: var(--accent-gold);
-  padding: 1.25rem 0 0.5rem;
-}
+  return (
+    <div style={styles.page}>
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>BOTFATHER</h1>
+        </div>
 
-/* Input row */
-.input-row {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
-  border-top: 1px solid #1b1b1b;
-  background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
-}
-.chat-input {
-  flex: 1;
-  padding: 0.85rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #222;
-  background: #0b0b0b;
-  color: var(--text-white);
-  outline: none;
-}
-.chat-input:focus {
-  box-shadow: 0 0 24px rgba(196,155,102,0.08);
-  border-color: var(--accent-gold);
-}
-.send-button {
-  padding: 0.6rem 1.15rem;
-  border-radius: 0.75rem;
-  background: var(--accent-brown);
-  color: white;
-  border: none;
-  font-weight: 600;
-}
+        <div ref={chatRef} style={styles.scroll}>
+          {messages.map((m, i) => {
+            const isAssistant = m.role === "assistant";
+            return (
+              <div key={i} style={isAssistant ? styles.assistantBubble : styles.userBubble}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+              </div>
+            );
+          })}
+        </div>
 
-/* Footer */
-.footer-muted {
-  text-align: center;
-  padding: 0.75rem;
-  color: var(--muted);
-  font-size: 0.85rem;
+        <div style={styles.inputRow}>
+          <input
+            style={styles.input}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Ask the BotFather anything..."
+          />
+          <button style={styles.sendBtn} onClick={sendMessage}>
+            Send
+          </button>
+        </div>
+
+        <div style={styles.footer}>BotFather is an AI and may make mistakes. Use with caution.</div>
+      </div>
+    </div>
+  );
 }
-
-/* Tiny helpers */
-.whitespace-pre-wrap { white-space: pre-wrap; }
-
-/* Custom scrollbar */
-.chat-scroll::-webkit-scrollbar { width: 8px; }
-.chat-scroll::-webkit-scrollbar-thumb { background: #262626; border-radius: 6px; }
-
-/* Animations (used by classes from React) */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeUp { animation: fadeUp 0.32s ease-out; }
