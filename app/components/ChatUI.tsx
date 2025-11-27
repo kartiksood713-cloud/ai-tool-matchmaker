@@ -6,25 +6,28 @@ export default function ChatUI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
-  // SHOW WELCOME MESSAGE ON LOAD
+  // ------------------------------------
+  // 1. WELCOME MESSAGE ON FIRST LOAD
+  // ------------------------------------
   useEffect(() => {
     setMessages([
       {
         role: "assistant",
-        content: `“My friend… welcome.<br/><br/>
-        I am the <b>BotFather</b>.<br/>
+        content: `
+        <b>“My friend… welcome.</b><br/>
+        I am the <b>BotFather</b>.<br/><br/>
         And I’m gonna give you a bot you can’t refuse.”`
       }
     ]);
   }, []);
 
+  // ------------------------------------
+  // 2. SEND MESSAGE
+  // ------------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const updatedMessages = [
-      ...messages,
-      { role: "user", content: input }
-    ];
+    const updatedMessages = [...messages, { role: "user", content: input }];
 
     setMessages(updatedMessages);
 
@@ -33,97 +36,90 @@ export default function ChatUI() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: input,
-        history: updatedMessages   // <-- SEND CHAT HISTORY
-      })
+        history: updatedMessages, // MEMORY
+      }),
     });
 
     const data = await res.json();
 
     setMessages([
       ...updatedMessages,
-      {
-        role: "assistant",
-        content: data.answer
-      }
+      { role: "assistant", content: data.answer },
     ]);
 
     setInput("");
   };
 
   return (
-    <div
-      style={{
-        background: "#000",
-        color: "#E6D3C3",
-        height: "100vh",
-        padding: "20px"
-      }}
-    >
+    <div style={{ background: "#000", minHeight: "100vh", padding: "20px" }}>
       <h1
         style={{
           textAlign: "center",
-          fontSize: "2rem",
-          fontWeight: "700",
           color: "#B28055",
+          fontWeight: 700,
+          fontSize: "2rem",
+          letterSpacing: "2px",
           marginBottom: "20px",
-          letterSpacing: "2px"
         }}
       >
         BOTFATHER
       </h1>
 
+      {/* CHAT WINDOW */}
       <div
         style={{
+          width: "90%",
           maxWidth: "900px",
           margin: "0 auto",
-          padding: "20px",
-          borderRadius: "12px",
           background: "#111",
-          height: "75vh",
+          padding: "20px",
+          height: "70vh",
           overflowY: "scroll",
-          border: "1px solid #2d2d2d"
+          borderRadius: "12px",
+          border: "1px solid #333",
         }}
       >
         {messages.map((msg, idx) => (
           <div
             key={idx}
             style={{
-              marginBottom: "20px",
-              padding: "15px",
+              marginBottom: "18px",
+              padding: "14px",
               borderRadius: "8px",
-              background: msg.role === "assistant" ? "#1f1a17" : "#222",
-              border: msg.role === "assistant" ? "1px solid #3a2e29" : "none",
+              background: msg.role === "assistant" ? "#1c1714" : "#543c29",
+              color: "#f5f5f5",
+              lineHeight: "1.5",
             }}
             dangerouslySetInnerHTML={{
               __html: msg.content
-                .replace(/\n\n/g, "<br/><br/>")
-                .replace(/\n/g, "<br/>")
+                .replace(/\n\n/g, "<br/><br/>") // bigger spaces
+                .replace(/\n/g, "<br/>"), // normal newline
             }}
           />
         ))}
       </div>
 
+      {/* INPUT BAR */}
       <div
         style={{
-          display: "flex",
-          gap: "12px",
-          marginTop: "20px",
+          width: "90%",
           maxWidth: "900px",
-          marginLeft: "auto",
-          marginRight: "auto"
+          margin: "20px auto 0",
+          display: "flex",
+          gap: "10px",
         }}
       >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Botfather anything..."
+          placeholder="Ask Botfather anything…"
           style={{
             flex: 1,
             padding: "14px",
             borderRadius: "8px",
-            border: "1px solid #444",
             background: "#111",
-            color: "white",
+            border: "1px solid #333",
+            color: "#fff",
           }}
         />
 
@@ -131,11 +127,11 @@ export default function ChatUI() {
           onClick={sendMessage}
           style={{
             background: "#B28055",
-            color: "black",
+            padding: "14px 22px",
             borderRadius: "8px",
-            padding: "14px 20px",
             border: "none",
-            fontWeight: "bold",
+            color: "black",
+            fontWeight: 700,
           }}
         >
           Send
