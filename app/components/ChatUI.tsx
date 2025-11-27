@@ -67,9 +67,7 @@ export default function ChatUI() {
           border: "1px solid #2d2d2d"
         }}
       >
-        {/* ----------------------------- */}
-        {/* STATIC WELCOME MESSAGE */}
-        {/* ----------------------------- */}
+        {/* ALWAYS visible welcome message */}
         <div
           style={{
             marginBottom: "25px",
@@ -83,16 +81,13 @@ export default function ChatUI() {
           }}
         >
           <strong style={{ color: "#B28055" }}>BotFather:</strong>
-          <br />
-          <br />
-          “My friend… welcome.  
-          I am the BotFather.  
+          <br /><br />
+          “My friend… welcome.<br />
+          I am the BotFather.<br />
           And I’m gonna give you a bot you can’t refuse.”
         </div>
 
-        {/* ----------------------------- */}
-        {/* LIVE CONVERSATION MESSAGES */}
-        {/* ----------------------------- */}
+        {/* Dynamic chat messages */}
         {messages.map((m, i) => (
           <div
             key={i}
