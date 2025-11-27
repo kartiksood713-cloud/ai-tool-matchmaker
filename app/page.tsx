@@ -1,9 +1,9 @@
 import ChatUI from "./components/ChatUI";
 
-export default function Home() {
+export default function Page() {
   return (
-    <main>
+    <div style={{ width: "100%", height: "100vh" }}>
       <ChatUI />
-    </main>
+    </div>
   );
 }
