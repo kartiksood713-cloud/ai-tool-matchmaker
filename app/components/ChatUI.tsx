@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { StreamDown } from "streamdown";
+import StreamDown from "streamdown";
 
 export default function ChatUI() {
   const [messages, setMessages] = useState<any[]>([]);
