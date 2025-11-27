@@ -9,7 +9,7 @@ export default function ChatUI() {
   const [input, setInput] = useState("");
   const chatRef = useRef<HTMLDivElement | null>(null);
 
-  // Welcome Message
+  // Welcome
   useEffect(() => {
     setMessages([
       {
@@ -20,11 +20,9 @@ export default function ChatUI() {
     ]);
   }, []);
 
-  // Auto Scroll
+  // Autosroll
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
   async function sendMessage() {
@@ -33,79 +31,166 @@ export default function ChatUI() {
     const userMsg = { role: "user", content: input };
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
-
     const raw = input;
     setInput("");
 
-    const res = await fetch("/api/rag", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: raw,
-        messages: updatedHistory,
-      }),
-    });
+    try {
+      const res = await fetch("/api/rag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: raw, messages: updatedHistory }),
+      });
 
-    const data = await res.json();
-    const botReply = data.answer || "The BotFather speaks no further.";
+      const data = await res.json();
+      const botReply = data.answer || "The BotFather speaks no further.";
 
-    setMessages((prev) => [...prev, { role: "assistant", content: botReply }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: botReply }]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Network error." },
+      ]);
+    }
   }
 
   return (
-    <div className="w-full min-h-screen bg-black text-white flex flex-col items-center py-6">
-      {/* Title */}
-      <div className="text-4xl font-extrabold tracking-[0.25em] text-[#c49b66] mb-6">
-        BOTFATHER
-      </div>
+    <div
+      style={{
+        width: "100%",
+        minHeight: "100vh",
+        background: "#000",
+        display: "flex",
+        justifyContent: "center",
+        paddingTop: 40,
+        paddingBottom: 40,
+        boxSizing: "border-box",
+        color: "white",
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
+      {/* CHAT WINDOW */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 820,
+          background: "#0d0d0d",
+          borderRadius: 24,
+          border: "1px solid #1f1f1f",
+          padding: "24px 0 12px 0",
+          boxShadow: "0 0 25px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* TITLE */}
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 36,
+            fontWeight: 900,
+            letterSpacing: "0.22em",
+            marginBottom: 10,
+            color: "#c49b66",
+          }}
+        >
+          BOTFATHER
+        </div>
 
-      {/* Chat Container */}
-      <div className="w-full max-w-3xl flex flex-col flex-1 bg-[#0d0d0d] rounded-2xl border border-[#1c1c1c] shadow-xl p-6 overflow-hidden">
-
-        {/* Chat Scroll Area */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto space-y-6 pr-2">
-          {messages.map((msg, i) => {
-            const isAssistant = msg.role === "assistant";
+        {/* CHAT SCROLL AREA */}
+        <div
+          ref={chatRef}
+          style={{
+            flex: 1,
+            padding: "10px 32px 10px 32px",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+            maxHeight: "65vh",
+          }}
+        >
+          {messages.map((m, idx) => {
+            const isAssistant = m.role === "assistant";
 
             return (
               <div
-                key={i}
-                className={`max-w-[85%] px-5 py-4 rounded-2xl leading-relaxed shadow-md ${
-                  isAssistant
-                    ? "bg-[#1a1a1a] text-[#e5e5e5]"
-                    : "bg-[#7b4a2b] text-white ml-auto"
-                }`}
+                key={idx}
+                style={{
+                  alignSelf: isAssistant ? "flex-start" : "flex-end",
+                  maxWidth: "78%",
+                  background: isAssistant ? "#1a1a1a" : "#8a5a3a",
+                  color: isAssistant ? "#e6e6e6" : "white",
+                  padding: "14px 18px",
+                  fontSize: 15.5,
+                  lineHeight: 1.55,
+                  borderRadius: 16,
+                  boxShadow: isAssistant
+                    ? "0 4px 12px rgba(0,0,0,0.4)"
+                    : "0 4px 12px rgba(138,90,58,0.35)",
+                  whiteSpace: "pre-wrap",
+                }}
               >
-                <ReactMarkdown
-                  className="whitespace-pre-wrap"
-                  remarkPlugins={[remarkGfm]}
-                >
-                  {msg.content}
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {m.content}
                 </ReactMarkdown>
               </div>
             );
           })}
         </div>
 
-        {/* Input Bar */}
-        <div className="w-full flex items-center gap-3 mt-4 border-t border-[#222] pt-4">
+        {/* INPUT AREA */}
+        <div
+          style={{
+            padding: "16px 20px 10px",
+            display: "flex",
+            gap: 12,
+            borderTop: "1px solid #1c1c1c",
+          }}
+        >
           <input
-            className="flex-1 bg-[#111] text-white px-4 py-3 rounded-xl border border-[#2a2a2a] focus:border-[#c49b66] outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Ask the BotFather anything..."
+            placeholder="Ask the BotFather anything…"
+            style={{
+              flex: 1,
+              padding: "14px 16px",
+              borderRadius: 14,
+              background: "#111",
+              border: "1px solid #2a2a2a",
+              color: "white",
+              fontSize: 15,
+              outline: "none",
+            }}
           />
+
           <button
             onClick={sendMessage}
-            className="px-6 py-3 rounded-xl bg-[#7b4a2b] text-white font-semibold hover:bg-[#643a22] transition"
+            style={{
+              padding: "14px 24px",
+              borderRadius: 14,
+              background: "#8a5a3a",
+              color: "white",
+              fontWeight: 600,
+              cursor: "pointer",
+              border: "none",
+            }}
           >
             Send
           </button>
         </div>
 
-        {/* Footer */}
-        <div className="text-xs text-[#777] text-center mt-3">
+        {/* FOOTER */}
+        <div
+          style={{
+            textAlign: "center",
+            color: "#777",
+            fontSize: 12,
+            marginTop: 6,
+            marginBottom: 4,
+          }}
+        >
           BotFather is an AI and may make mistakes. Use with caution.
         </div>
       </div>
