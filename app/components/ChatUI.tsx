@@ -3,38 +3,60 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import StreamDown from "streamdown";
+
+// ------------------------------------------------------
+// Custom Typing Animation
+// ------------------------------------------------------
+function TypingText({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState("");
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      setDisplayed(text.slice(0, i));
+      i++;
+      if (i > text.length) clearInterval(interval);
+    }, 10); // typing speed
+    return () => clearInterval(interval);
+  }, [text]);
+
+  return (
+    <ReactMarkdown className="whitespace-pre-wrap leading-relaxed" remarkPlugins={[remarkGfm]}>
+      {displayed}
+    </ReactMarkdown>
+  );
+}
 
 export default function ChatUI() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const chatRef = useRef<HTMLDivElement | null>(null);
 
-  // --------------------------------------
-  // 1. Welcome message on load
-  // --------------------------------------
+  // ------------------------------------------------------
+  // Welcome message
+  // ------------------------------------------------------
   useEffect(() => {
     setMessages([
       {
         role: "assistant",
         content:
-          "My child… I am **The BotFather**.\n\nI will give you a bot you cannot refuse.",
+          "My child… I am The BotFather.\n\nI will give you a bot you cannot refuse.",
       },
     ]);
   }, []);
 
-  // --------------------------------------
-  // 2. Smooth scroll
-  // --------------------------------------
+  // ------------------------------------------------------
+  // Auto-scroll
+  // ------------------------------------------------------
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // --------------------------------------
-  // 3. Send message
-  // --------------------------------------
+  // ------------------------------------------------------
+  // Send message
+  // ------------------------------------------------------
   async function sendMessage() {
     if (!input.trim()) return;
 
@@ -50,7 +72,7 @@ export default function ChatUI() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: raw,
-        messages: updatedHistory, // memory sent to backend
+        messages: updatedHistory,
       }),
     });
 
@@ -60,17 +82,18 @@ export default function ChatUI() {
     setMessages((prev) => [...prev, { role: "assistant", content: botReply }]);
   }
 
-  // --------------------------------------
-  // 4. Render UI
-  // --------------------------------------
+  // ------------------------------------------------------
+  // UI
+  // ------------------------------------------------------
   return (
     <div className="w-full h-screen flex flex-col justify-between p-6 bg-black text-white">
+      
       {/* Title */}
       <div className="text-center text-4xl font-bold mb-5 text-[#b37a56] tracking-wide">
         BOTFATHER
       </div>
 
-      {/* Chat box */}
+      {/* Chat Area */}
       <div
         ref={chatRef}
         className="flex-1 overflow-y-auto p-6 rounded-xl bg-[#111] shadow-inner space-y-6"
@@ -81,21 +104,16 @@ export default function ChatUI() {
           return (
             <div
               key={i}
-              className={`max-w-3xl px-4 py-3 rounded-lg ${
+              className={`max-w-3xl px-4 py-3 rounded-lg leading-relaxed ${
                 isAssistant
                   ? "bg-[#222] text-[#ddd]"
                   : "bg-[#8a5a3a] text-white self-end ml-auto"
               }`}
             >
               {isAssistant ? (
-                // --------------------------------------
-                // STREAMDOWN WITH PROPER MARKDOWN
-                // --------------------------------------
-                <StreamDown markdown delay={12} cursor="▋">
-                  {msg.content}
-                </StreamDown>
+                <TypingText text={msg.content} />
               ) : (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown className="whitespace-pre-wrap leading-relaxed" remarkPlugins={[remarkGfm]}>
                   {msg.content}
                 </ReactMarkdown>
               )}
@@ -104,7 +122,7 @@ export default function ChatUI() {
         })}
       </div>
 
-      {/* Input bar */}
+      {/* Input */}
       <div className="flex gap-3 mt-4">
         <input
           className="flex-1 px-4 py-3 rounded-lg bg-[#111] text-white border border-[#333]"
