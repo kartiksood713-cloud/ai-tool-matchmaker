@@ -7,56 +7,37 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const exa = new Exa(process.env.EXA_API_KEY!);
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
-export async function POST(req: Request) {
+export async function POST(req) {
   try {
-    const { query, history } = await req.json();
+    const { query, history = [] } = await req.json();
 
     if (!query) {
       return NextResponse.json({ error: "No query provided" }, { status: 400 });
     }
 
-    const casual = ["hi", "hello", "hey", "yo", "hola", "sup"];
-
-    // Natural greetings (still godfather-style)
-    if (casual.includes(query.toLowerCase().trim())) {
-      return NextResponse.json({
-        answer:
-          "My friend… you come to me with a greeting, and I welcome you. Tell me… what favor can the BotFather do for you today?"
-      });
-    }
-
+    // Pinecone
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
-    // -------------------------
-    // Embedding
-    // -------------------------
     const embedding = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: query
     });
 
-    // -------------------------
-    // Pinecone → Bullets
-    // -------------------------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
       topK: 5,
       includeMetadata: true
     });
 
+    // CSV → bullets
     const csvBullets = pineRes.matches
-      .map((m: any) => {
+      .map((m) => {
         const md = m.metadata;
-        return `
-• **${md.Chatbot_Name || "Tool"}**  
-  ${md.Description || md.UseCase || "Relevant internal knowledge."}
-`;
+        return `• **${md.Chatbot_Name || "Tool"}** — ${md.Description || md.UseCase || ""}`;
       })
-      .join("\n");
+      .join("\n\n");
 
-    // -------------------------
-    // EXA → Bullets
-    // -------------------------
+    // EXA → bullets
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
       type: "neural",
@@ -64,53 +45,33 @@ export async function POST(req: Request) {
     });
 
     const exaBullets = exaRes.results
-      .map((r: any) => {
-        const highlights = r.highlights?.map((h: any) => h.text).join(" | ");
-        const snippet = highlights || r.text?.slice(0, 250) || "";
-        return `
-• ${snippet}
-`;
+      .map((r) => {
+        const highlights = r.highlights?.map((h) => h.text).join(" | ");
+        return `• ${highlights || r.text?.slice(0, 180)}`;
       })
-      .join("\n");
-
-    // -------------------------
-    // Build conversation history
-    // -------------------------
-    const formattedHistory = (history || [])
-      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
 
-    // -------------------------
-    // LLM PROMPT (Godfather tone + line breaks)
-    // -------------------------
+    // FINAL prompt with memory + spacing
     const llmPrompt = `
-You are **The BotFather**, inspired by *The Godfather*.
-Tone:
-- Calm, slow, respectful
-- Slightly intimidating but kind
-- “I’m doing you a favor” attitude
-- No cringe slang
-- Wise, strategic, authoritative
+You are The BotFather — respond in a calm, wise, Godfather tone.
+Remember the conversation.
 
-FORMATTING RULES:
-- Bullets must have **blank lines** between them.
-- Paragraphs must always start on a **new line**.
-- Never output a giant block of text.
-- Always separate sections with clear spacing.
+CONVERSATION SO FAR:
+${history.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n")}
 
-CONVERSATION HISTORY:
-${formattedHistory}
-
-USER QUESTION:
+USER ASKS:
 "${query}"
 
-INTERNAL DATA (CSV):
+CSV KNOWLEDGE (use only if relevant):
 ${csvBullets}
 
-EXTERNAL DATA (EXA):
+WEB INSIGHTS (optional):
 ${exaBullets}
 
-Now reply as The BotFather, with perfect spacing and bullet formatting.
+RULES:
+- If listing items, ALWAYS put an empty line between bullets.
+- Keep answers neat, spaced, and easy to read.
+- Maintain Godfather persona subtly.
 `;
 
     const completion = await openai.chat.completions.create({
@@ -122,7 +83,7 @@ Now reply as The BotFather, with perfect spacing and bullet formatting.
     return NextResponse.json({
       answer: completion.choices[0].message?.content
     });
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
