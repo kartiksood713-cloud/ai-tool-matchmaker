@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { StreamDown } from "streamdown/react";
 
 export default function ChatUI() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
+  const chatRef = useRef<HTMLDivElement | null>(null);
 
-  // SHOW WELCOME MESSAGE ON FIRST LOAD
+  // --------------------------------------
+  // 1. Welcome message on first load
+  // --------------------------------------
   useEffect(() => {
     setMessages([
       {
@@ -19,56 +23,93 @@ export default function ChatUI() {
     ]);
   }, []);
 
-  // SEND MESSAGE
+  // --------------------------------------
+  // 2. Auto scroll
+  // --------------------------------------
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // --------------------------------------
+  // 3. Send a message
+  // --------------------------------------
   async function sendMessage() {
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const userMsg = { role: "user", content: input };
 
+    // Add user message immediately
+    const newHistory = [...messages, userMsg];
+    setMessages(newHistory);
+
+    const raw = input;
+    setInput("");
+
+    // Make API call
     const res = await fetch("/api/rag", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: input,
-        messages: newMessages, // <-- MEMORY
+        query: raw,
+        messages: newHistory, // <-- memory sent to backend
       }),
     });
 
     const data = await res.json();
 
-    setMessages([
-      ...newMessages,
-      { role: "assistant", content: data.answer || "..." },
-    ]);
+    const botReply = data.answer || "The BotFather has no words…";
 
-    setInput("");
+    // Add bot reply (will stream in UI)
+    setMessages((old) => [...old, { role: "assistant", content: botReply }]);
   }
 
+  // --------------------------------------
+  // 4. Render UI
+  // --------------------------------------
   return (
-    <div className="w-full h-screen flex flex-col justify-between p-6 bg-black">
+    <div className="w-full h-screen flex flex-col justify-between p-6 bg-black text-white">
+      {/* Title */}
       <div className="text-center text-4xl font-bold mb-5 text-[#b37a56] tracking-wide">
         BOTFATHER
       </div>
 
-      {/* CHAT WINDOW */}
-      <div className="flex-1 overflow-y-auto p-6 rounded-xl bg-[#111] shadow-inner space-y-6">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`max-w-3xl px-4 py-3 rounded-lg whitespace-pre-wrap ${
-              msg.role === "user"
-                ? "bg-[#8a5a3a] text-white self-end ml-auto"
-                : "bg-[#222] text-[#ddd]"
-            }`}
-          >
-            {/* MARKDOWN RENDERING FIX */}
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {msg.content}
-            </ReactMarkdown>
-          </div>
-        ))}
+      {/* Chat window */}
+      <div
+        ref={chatRef}
+        className="flex-1 overflow-y-auto p-6 rounded-xl bg-[#111] shadow-inner space-y-6"
+      >
+        {messages.map((msg, i) => {
+          const isAssistant = msg.role === "assistant";
+
+          return (
+            <div
+              key={i}
+              className={`max-w-3xl px-4 py-3 rounded-lg whitespace-pre-wrap ${
+                isAssistant
+                  ? "bg-[#222] text-[#ddd]"
+                  : "bg-[#8a5a3a] text-white self-end ml-auto"
+              }`}
+            >
+              {isAssistant ? (
+                // --------------------------------------
+                // STREAMDOWN FOR ASSISTANT MESSAGES
+                // --------------------------------------
+                <StreamDown
+                  markdown={msg.content}
+                  delay={12} // typing speed
+                  cursor="▋" // blinking cursor
+                />
+              ) : (
+                // Normal markdown for user messages
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.content}
+                </ReactMarkdown>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* INPUT BAR */}
@@ -89,7 +130,7 @@ export default function ChatUI() {
       </div>
 
       {/* FOOTER */}
-      <div className="text-center text-xs mt-2 text-[#666]">
+      <div className="text-center text-xs mt-3 text-[#666]">
         BotFather is an AI and may make mistakes. Use with caution.
       </div>
     </div>
