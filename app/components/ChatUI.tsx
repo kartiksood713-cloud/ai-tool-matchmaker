@@ -11,7 +11,7 @@ export default function ChatUI() {
   const chatRef = useRef<HTMLDivElement | null>(null);
 
   // --------------------------------------
-  // 1. Welcome message on first load
+  // 1. Welcome message on load
   // --------------------------------------
   useEffect(() => {
     setMessages([
@@ -24,7 +24,7 @@ export default function ChatUI() {
   }, []);
 
   // --------------------------------------
-  // 2. Auto scroll
+  // 2. Smooth scroll
   // --------------------------------------
   useEffect(() => {
     if (chatRef.current) {
@@ -33,36 +33,31 @@ export default function ChatUI() {
   }, [messages]);
 
   // --------------------------------------
-  // 3. Send a message
+  // 3. Send message
   // --------------------------------------
   async function sendMessage() {
     if (!input.trim()) return;
 
     const userMsg = { role: "user", content: input };
+    const updatedHistory = [...messages, userMsg];
 
-    // Add user message immediately
-    const newHistory = [...messages, userMsg];
-    setMessages(newHistory);
-
+    setMessages(updatedHistory);
     const raw = input;
     setInput("");
 
-    // Make API call
     const res = await fetch("/api/rag", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: raw,
-        messages: newHistory, // <-- memory sent to backend
+        messages: updatedHistory, // memory sent to backend
       }),
     });
 
     const data = await res.json();
+    const botReply = data.answer || "The BotFather speaks no further.";
 
-    const botReply = data.answer || "The BotFather has no words…";
-
-    // Add bot reply (will stream in UI)
-    setMessages((old) => [...old, { role: "assistant", content: botReply }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: botReply }]);
   }
 
   // --------------------------------------
@@ -75,7 +70,7 @@ export default function ChatUI() {
         BOTFATHER
       </div>
 
-      {/* Chat window */}
+      {/* Chat box */}
       <div
         ref={chatRef}
         className="flex-1 overflow-y-auto p-6 rounded-xl bg-[#111] shadow-inner space-y-6"
@@ -86,7 +81,7 @@ export default function ChatUI() {
           return (
             <div
               key={i}
-              className={`max-w-3xl px-4 py-3 rounded-lg whitespace-pre-wrap ${
+              className={`max-w-3xl px-4 py-3 rounded-lg ${
                 isAssistant
                   ? "bg-[#222] text-[#ddd]"
                   : "bg-[#8a5a3a] text-white self-end ml-auto"
@@ -94,15 +89,12 @@ export default function ChatUI() {
             >
               {isAssistant ? (
                 // --------------------------------------
-                // STREAMDOWN FOR ASSISTANT MESSAGES
+                // STREAMDOWN WITH PROPER MARKDOWN
                 // --------------------------------------
-                <StreamDown
-                  markdown={msg.content}
-                  delay={12} // typing speed
-                  cursor="▋" // blinking cursor
-                />
+                <StreamDown markdown delay={12} cursor="▋">
+                  {msg.content}
+                </StreamDown>
               ) : (
-                // Normal markdown for user messages
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {msg.content}
                 </ReactMarkdown>
@@ -112,7 +104,7 @@ export default function ChatUI() {
         })}
       </div>
 
-      {/* INPUT BAR */}
+      {/* Input bar */}
       <div className="flex gap-3 mt-4">
         <input
           className="flex-1 px-4 py-3 rounded-lg bg-[#111] text-white border border-[#333]"
@@ -129,7 +121,7 @@ export default function ChatUI() {
         </button>
       </div>
 
-      {/* FOOTER */}
+      {/* Footer */}
       <div className="text-center text-xs mt-3 text-[#666]">
         BotFather is an AI and may make mistakes. Use with caution.
       </div>
