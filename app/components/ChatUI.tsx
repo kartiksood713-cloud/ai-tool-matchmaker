@@ -1,79 +1,117 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 
 export default function ChatUI() {
-  const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-
-  async function sendMessage() {
-    if (!query.trim()) return;
-
-    const userMsg = { role: "user", content: query };
-    setMessages((prev) => [...prev, userMsg]);
-    setQuery("");
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/rag", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-
-      const data = await res.json();
-      const botMsg = { role: "assistant", content: data.answer || "No answer." };
-      setMessages((prev) => [...prev, botMsg]);
-    } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Something went wrong." },
-      ]);
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        boxRef.current?.scrollTo({
-          top: boxRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }, 100);
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Hi, I am the BotFather… and I'm gonna give you a bot you can't refuse."
     }
-  }
+  ]);
 
-  function onKey(e: any) {
-    if (e.key === "Enter") sendMessage();
-  }
+  const [input, setInput] = useState("");
+
+  const sendMessage = async () => {
+    if (!input) return;
+
+    const newMessages = [...messages, { role: "user", content: input }];
+    setMessages(newMessages);
+
+    const res = await fetch("/api/rag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: input,
+        history: newMessages
+      })
+    });
+
+    const data = await res.json();
+
+    setMessages([
+      ...newMessages,
+      { role: "assistant", content: data.answer }
+    ]);
+
+    setInput("");
+  };
 
   return (
-    <div className="chat-container">
-      <div className="bot-title">BOTFATHER</div>
-
-      <div className="chat-box" ref={boxRef}>
-        {messages.map((msg, i) => (
+    <div
+      style={{
+        background: "#0d0d0d",
+        color: "#f2f2f2",
+        height: "100vh",
+        padding: "20px",
+        fontFamily: "Inter, sans-serif"
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "700px",
+          margin: "0 auto",
+          padding: "20px",
+          borderRadius: "12px",
+          background: "#1a1a1a",
+          height: "85vh",
+          overflowY: "scroll"
+        }}
+      >
+        {messages.map((m, i) => (
           <div
             key={i}
-            className={`message ${msg.role === "user" ? "user" : "bot"}`}
-          >
-            {msg.content}
-          </div>
+            style={{
+              marginBottom: "18px",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              background: m.role === "user" ? "#333" : "#2a1f1a"
+            }}
+            dangerouslySetInnerHTML={{
+              __html: m.content
+                .replace(/\n\n/g, "<br/><br/>")
+                .replace(/\n/g, "<br/>")
+            }}
+          />
         ))}
-
-        {loading && (
-          <div className="message bot">Typing...</div>
-        )}
       </div>
 
-      <div className="input-row">
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          marginTop: "20px",
+          maxWidth: "700px",
+          marginLeft: "auto",
+          marginRight: "auto"
+        }}
+      >
         <input
-          className="chat-input"
-          placeholder="Ask Botfather anything..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKey}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Ask the BotFather anything…"
+          style={{
+            flex: 1,
+            padding: "14px",
+            borderRadius: "8px",
+            border: "1px solid #444",
+            background: "#111",
+            color: "white"
+          }}
         />
-        <button className="send-button" onClick={sendMessage}>
+
+        <button
+          onClick={sendMessage}
+          style={{
+            background: "#5a4638",
+            color: "white",
+            borderRadius: "8px",
+            padding: "14px 20px",
+            border: "none",
+            fontWeight: "bold"
+          }}
+        >
           Send
         </button>
       </div>
