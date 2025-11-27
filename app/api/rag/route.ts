@@ -9,25 +9,26 @@ const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 export async function POST(req: Request) {
   try {
-    const { query } = await req.json();
+    const { query, history } = await req.json();
+
     if (!query) {
       return NextResponse.json({ error: "No query provided" }, { status: 400 });
     }
 
-    // -------------------------
-    // 0. NATURAL CONVERSATION
-    // -------------------------
     const casual = ["hi", "hello", "hey", "yo", "hola", "sup"];
+
+    // Natural greetings (still godfather-style)
     if (casual.includes(query.toLowerCase().trim())) {
       return NextResponse.json({
-        answer: "Hey 👋! How can the Botfather assist you today?"
+        answer:
+          "My friend… you come to me with a greeting, and I welcome you. Tell me… what favor can the BotFather do for you today?"
       });
     }
 
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
     // -------------------------
-    // 1. EMBEDDING FOR PINECONE
+    // Embedding
     // -------------------------
     const embedding = await openai.embeddings.create({
       model: "text-embedding-3-small",
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     });
 
     // -------------------------
-    // 2. PINECONE → CLEAN BULLETS
+    // Pinecone → Bullets
     // -------------------------
     const pineRes = await index.query({
       vector: embedding.data[0].embedding,
@@ -54,12 +55,12 @@ export async function POST(req: Request) {
       .join("\n");
 
     // -------------------------
-    // 3. EXA SEARCH → CLEAN BULLETS
+    // EXA → Bullets
     // -------------------------
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
       type: "neural",
-      useAutoprompt: true,
+      useAutoprompt: true
     });
 
     const exaBullets = exaRes.results
@@ -73,32 +74,43 @@ export async function POST(req: Request) {
       .join("\n");
 
     // -------------------------
-    // 4. FINAL GPT ANSWER
+    // Build conversation history
+    // -------------------------
+    const formattedHistory = (history || [])
+      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n\n");
+
+    // -------------------------
+    // LLM PROMPT (Godfather tone + line breaks)
     // -------------------------
     const llmPrompt = `
-You are Botfather — a clean, classy, structured but conversational assistant.
+You are **The BotFather**, inspired by *The Godfather*.
+Tone:
+- Calm, slow, respectful
+- Slightly intimidating but kind
+- “I’m doing you a favor” attitude
+- No cringe slang
+- Wise, strategic, authoritative
 
-RULES FOR ALL ANSWERS:
-- NEVER output giant paragraphs.
-- ALWAYS break EXA and CSV items into bullet points.
-- ALWAYS leave a blank line between bullets.
-- Main answer can be conversational.
-- Use bullets only when needed.
-- Only use CSV/EXA if relevant. Ignore if not helpful.
+FORMATTING RULES:
+- Bullets must have **blank lines** between them.
+- Paragraphs must always start on a **new line**.
+- Never output a giant block of text.
+- Always separate sections with clear spacing.
+
+CONVERSATION HISTORY:
+${formattedHistory}
 
 USER QUESTION:
 "${query}"
 
------------------------------------
-PRIMARY INTERNAL DATA (CSV → bullets):
+INTERNAL DATA (CSV):
 ${csvBullets}
 
------------------------------------
-SECONDARY EXTERNAL DATA (EXA → bullets):
+EXTERNAL DATA (EXA):
 ${exaBullets}
 
------------------------------------
-Now provide a clean, friendly, well-structured answer.
+Now reply as The BotFather, with perfect spacing and bullet formatting.
 `;
 
     const completion = await openai.chat.completions.create({
@@ -108,9 +120,8 @@ Now provide a clean, friendly, well-structured answer.
     });
 
     return NextResponse.json({
-      answer: completion.choices[0].message?.content,
+      answer: completion.choices[0].message?.content
     });
-
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
