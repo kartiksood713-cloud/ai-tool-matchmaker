@@ -19,7 +19,8 @@
     "tailwindcss": "3.4.4",
     "postcss": "8.4.31",
     "autoprefixer": "10.4.16",
-    "@tailwindcss/typography": "0.5.10"
+    "@tailwindcss/typography": "0.5.10",
+    "streamdown": "latest"
   },
   "devDependencies": {
     "typescript": "5.4.2",
