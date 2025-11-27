@@ -6,23 +6,26 @@ export default function ChatUI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
-  // SHOW WELCOME MESSAGE ON MOUNT
+  // SHOW WELCOME MESSAGE ON LOAD
   useEffect(() => {
     setMessages([
       {
         role: "assistant",
-        content:
-          `“My friend… welcome.<br/><br/>
-          I am the <b>BotFather</b>.<br/>
-          And I’m gonna give you a bot you can’t refuse.”`
+        content: `“My friend… welcome.<br/><br/>
+        I am the <b>BotFather</b>.<br/>
+        And I’m gonna give you a bot you can’t refuse.”`
       }
     ]);
   }, []);
 
   const sendMessage = async () => {
-    if (!input) return;
+    if (!input.trim()) return;
 
-    const updatedMessages = [...messages, { role: "user", content: input }];
+    const updatedMessages = [
+      ...messages,
+      { role: "user", content: input }
+    ];
+
     setMessages(updatedMessages);
 
     const res = await fetch("/api/rag", {
@@ -30,7 +33,7 @@ export default function ChatUI() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: input,
-        history: updatedMessages
+        history: updatedMessages   // <-- SEND CHAT HISTORY
       })
     });
 
@@ -38,7 +41,10 @@ export default function ChatUI() {
 
     setMessages([
       ...updatedMessages,
-      { role: "assistant", content: data.answer }
+      {
+        role: "assistant",
+        content: data.answer
+      }
     ]);
 
     setInput("");
