@@ -3,46 +3,49 @@ import Exa from "exa-js";
 import { Pinecone } from "@pinecone-database/pinecone";
 import OpenAI from "openai";
 
+// --------------------------------------------------
+// INIT
+// --------------------------------------------------
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const exa = new Exa(process.env.EXA_API_KEY!);
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 export async function POST(req: Request) {
+  console.log("🔥 Incoming RAG request...");
+
   try {
     const { query, messages } = await req.json();
+
     if (!query) {
       return NextResponse.json({ error: "No query provided" }, { status: 400 });
     }
 
-    const index = pinecone.index(process.env.PINECONE_INDEX!);
-
-    // -------------------------
-    // Embeddings for Pinecone
-    // -------------------------
-    const embedding = await openai.embeddings.create({
+    // --------------------------------------------------
+    // 1. Create embedding for Pinecone
+    // --------------------------------------------------
+    const embed = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: query,
     });
 
-    // -------------------------
-    // Pinecone CSV Knowledge
-    // -------------------------
-    const pineRes = await index.query({
-      vector: embedding.data[0].embedding,
+    const index = pinecone.index(process.env.PINECONE_INDEX!);
+
+    const pine = await index.query({
+      vector: embed.data[0].embedding,
       topK: 5,
       includeMetadata: true,
     });
 
-    const csvBullets = pineRes.matches
+    const csvBullets = pine.matches
       .map((m: any) => {
         const md = m.metadata;
-        return `• **${md.Chatbot_Name || "Tool"}** — ${md.UseCase || md.Description || "Relevant match"}`;
+        return `• ${md.Chatbot_Name || "Tool"} — ${md.UseCase || md.Description || "Relevant"}`;
       })
-      .join("\n\n"); // <--- IMPORTANT FOR STREAMDOWN GAP SPACING
+      .join("\n\n");
 
-    // -------------------------
-    // EXA Search
-    // -------------------------
+    // --------------------------------------------------
+    // 2. EXA Search
+    // --------------------------------------------------
     const exaRes = await exa.searchAndContents(query, {
       numResults: 3,
       type: "neural",
@@ -51,44 +54,42 @@ export async function POST(req: Request) {
 
     const exaBullets = exaRes.results
       .map((r: any) => {
-        const highlights = r.highlights?.map((h: any) => h.text).join(" | ");
-        const snippet = highlights || r.text?.slice(0, 200) || "";
-        return `• ${snippet}`;
+        const hi = r.highlights?.map((h: any) => h.text).join(" | ");
+        return `• ${hi || r.text?.slice(0, 200) || ""}`;
       })
       .join("\n\n");
 
-    // -------------------------
-    // LLM Prompt (Godfather Tone)
-    // -------------------------
-    const llmPrompt = `
-You are **The BotFather** — speak like Vito Corleone.
+    // --------------------------------------------------
+    // 3. SYSTEM PROMPT (Godfather + formatting rules)
+    // --------------------------------------------------
+    const systemPrompt = `
+You are The BotFather. Speak in a calm, slow, powerful Godfather tone.
+Never comedic. Never exaggerated. Always elegant.
 
-Tone Rules:
-- Slow, calm, commanding.
-- Occasional Godfather-style lines: “my child…”, “listen carefully…”, “I will give you an answer you cannot refuse.”
-- Never comedic or parody — classy, intimidating respect.
+Do NOT use:
+- bold
+- italics
+- asterisks
+- markdown lists
+- hyphen bullets
 
-Formatting Rules (IMPORTANT for StreamDown):
-- Always output clean Markdown.
-- Bullet points MUST have a blank line between them.
-- Paragraphs MUST be separated by a blank line.
-- Do not clump text.
+FORMAT RULES:
+- Plain text only.
+- Numbered list only.
+- Each item spaced by exactly one blank line.
+- Each description indented exactly 3 spaces.
+- Short, clean, elegant responses.
 - No walls of text.
+- No limiting number of tools.
+- Always conversational — respond directly to the user's message, then list tools.
 
-ADDITIONAL FORMATTING RULES (OVERRIDE ALL MARKDOWN DEFAULTS):
+STRUCTURE:
 
-- Do NOT use Markdown bold (**text**) or any asterisks.
-- Do NOT include stars, bullets, hyphens, or markdown formatting.
-- The response must be plain text, clean, elegant, and well-spaced.
+Intro (1–2 lines addressing the user)
+(blank line)
 
-FORMAT STRUCTURE (STRICT):
-- Start with a short 1–2 line intro.
-- Leave one blank line after the intro.
-
-LIST FORMAT:
-- Always use numbered lists.
-- Indent descriptions by exactly 3 spaces.
-- Item structure:
+Here are the tools that match your request:
+(blank line)
 
 1. Tool Name
    Short description.
@@ -96,42 +97,28 @@ LIST FORMAT:
 2. Tool Name
    Short description.
 
-(continue for as many items as needed)
+(blank line)
+End with a calm Godfather-style closing line.
 
-NUMBER OF RESULTS RULE:
-- Never limit output to 3 items.
-- Return as many tools as are relevant.
-- Do NOT say “here are three tools”.
-- Use a neutral intro such as:
-
-Here are the tools that match your request:
-
-SPACING RULES:
-- One blank line between numbered items.
-- Absolutely no bolding, italics, asterisks, or markdown.
-- Keep line lengths readable (no walls of text).
-
-User question:
+USER MESSAGE:
 "${query}"
 
-Relevant internal knowledge:
+INTERNAL KNOWLEDGE:
 ${csvBullets}
 
-Relevant external insights:
+EXTERNAL INSIGHTS:
 ${exaBullets}
-
-Consolidate everything into one answer.
-Only include details that truly matter.
 `;
 
+    // --------------------------------------------------
+    // 4. CONVERSATIONAL CHAT COMPLETION (FIXED)
+    // --------------------------------------------------
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        ...(messages || []).map((m: any) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        { role: "user", content: llmPrompt },
+        { role: "system", content: systemPrompt },
+        ...(messages || []),
+        { role: "user", content: query },
       ],
       temperature: 0.6,
     });
@@ -140,6 +127,14 @@ Only include details that truly matter.
       answer: completion.choices[0].message?.content,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("❌ RAG ERROR:", err);
+
+    return NextResponse.json(
+      {
+        answer:
+          "My child… the system is troubled. But stay calm, for I will return with an answer you cannot refuse.",
+      },
+      { status: 500 }
+    );
   }
 }
