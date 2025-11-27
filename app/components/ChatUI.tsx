@@ -1,30 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ChatUI() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
+  // SHOW WELCOME MESSAGE ON MOUNT
+  useEffect(() => {
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          `“My friend… welcome.<br/><br/>
+          I am the <b>BotFather</b>.<br/>
+          And I’m gonna give you a bot you can’t refuse.”`
+      }
+    ]);
+  }, []);
+
   const sendMessage = async () => {
     if (!input) return;
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    const updatedMessages = [...messages, { role: "user", content: input }];
+    setMessages(updatedMessages);
 
     const res = await fetch("/api/rag", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: input,
-        history: newMessages
+        history: updatedMessages
       })
     });
 
     const data = await res.json();
 
     setMessages([
-      ...newMessages,
+      ...updatedMessages,
       { role: "assistant", content: data.answer }
     ]);
 
@@ -37,8 +50,7 @@ export default function ChatUI() {
         background: "#000",
         color: "#E6D3C3",
         height: "100vh",
-        padding: "20px",
-        fontFamily: "Inter, sans-serif"
+        padding: "20px"
       }}
     >
       <h1
@@ -54,7 +66,6 @@ export default function ChatUI() {
         BOTFATHER
       </h1>
 
-      {/* CHAT WINDOW */}
       <div
         style={{
           maxWidth: "900px",
@@ -67,40 +78,18 @@ export default function ChatUI() {
           border: "1px solid #2d2d2d"
         }}
       >
-        {/* ALWAYS visible welcome message */}
-        <div
-          style={{
-            marginBottom: "25px",
-            padding: "20px",
-            borderRadius: "8px",
-            background: "#1f1a17",
-            border: "1px solid #3a2e29",
-            fontSize: "1.1rem",
-            lineHeight: "1.6",
-            color: "#d9c5b4"
-          }}
-        >
-          <strong style={{ color: "#B28055" }}>BotFather:</strong>
-          <br /><br />
-          “My friend… welcome.<br />
-          I am the BotFather.<br />
-          And I’m gonna give you a bot you can’t refuse.”
-        </div>
-
-        {/* Dynamic chat messages */}
-        {messages.map((m, i) => (
+        {messages.map((msg, idx) => (
           <div
-            key={i}
+            key={idx}
             style={{
-              marginBottom: "18px",
-              padding: "12px 16px",
+              marginBottom: "20px",
+              padding: "15px",
               borderRadius: "8px",
-              background: m.role === "user" ? "#222" : "#1f1a17",
-              border: m.role === "assistant" ? "1px solid #3a2e29" : "none",
-              color: m.role === "assistant" ? "#E6D3C3" : "#fff"
+              background: msg.role === "assistant" ? "#1f1a17" : "#222",
+              border: msg.role === "assistant" ? "1px solid #3a2e29" : "none",
             }}
             dangerouslySetInnerHTML={{
-              __html: m.content
+              __html: msg.content
                 .replace(/\n\n/g, "<br/><br/>")
                 .replace(/\n/g, "<br/>")
             }}
@@ -108,7 +97,6 @@ export default function ChatUI() {
         ))}
       </div>
 
-      {/* INPUT BAR */}
       <div
         style={{
           display: "flex",
@@ -121,7 +109,7 @@ export default function ChatUI() {
       >
         <input
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Ask Botfather anything..."
           style={{
             flex: 1,
@@ -129,7 +117,7 @@ export default function ChatUI() {
             borderRadius: "8px",
             border: "1px solid #444",
             background: "#111",
-            color: "white"
+            color: "white",
           }}
         />
 
@@ -141,7 +129,7 @@ export default function ChatUI() {
             borderRadius: "8px",
             padding: "14px 20px",
             border: "none",
-            fontWeight: "bold"
+            fontWeight: "bold",
           }}
         >
           Send
