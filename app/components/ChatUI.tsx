@@ -34,56 +34,75 @@ export default function ChatUI() {
   return (
     <div
       style={{
-        background: "#0d0d0d",
-        color: "#f2f2f2",
+        background: "#000",
+        color: "#E6D3C3",
         height: "100vh",
         padding: "20px",
         fontFamily: "Inter, sans-serif"
       }}
     >
+      <h1
+        style={{
+          textAlign: "center",
+          fontSize: "2rem",
+          fontWeight: "700",
+          color: "#B28055",
+          marginBottom: "20px",
+          letterSpacing: "2px"
+        }}
+      >
+        BOTFATHER
+      </h1>
+
+      {/* CHAT WINDOW */}
       <div
         style={{
-          maxWidth: "700px",
+          maxWidth: "900px",
           margin: "0 auto",
           padding: "20px",
           borderRadius: "12px",
-          background: "#1a1a1a",
-          height: "85vh",
-          overflowY: "scroll"
+          background: "#111",
+          height: "75vh",
+          overflowY: "scroll",
+          border: "1px solid #2d2d2d"
         }}
       >
-
         {/* ----------------------------- */}
-        {/* WELCOME MESSAGE (STATIC) */}
+        {/* STATIC WELCOME MESSAGE */}
         {/* ----------------------------- */}
         <div
           style={{
             marginBottom: "25px",
             padding: "20px",
             borderRadius: "8px",
-            background: "#2a1f1a",
-            border: "1px solid #3b2e26",
+            background: "#1f1a17",
+            border: "1px solid #3a2e29",
             fontSize: "1.1rem",
-            lineHeight: "1.6"
+            lineHeight: "1.6",
+            color: "#d9c5b4"
           }}
         >
-          <strong>BotFather:</strong><br /><br />
+          <strong style={{ color: "#B28055" }}>BotFather:</strong>
+          <br />
+          <br />
           “My friend… welcome.  
           I am the BotFather.  
           And I’m gonna give you a bot you can’t refuse.”
         </div>
 
         {/* ----------------------------- */}
-        {/* CHAT MESSAGES */}
+        {/* LIVE CONVERSATION MESSAGES */}
         {/* ----------------------------- */}
         {messages.map((m, i) => (
           <div
             key={i}
             style={{
               marginBottom: "18px",
-              padding: "10px 14px",
+              padding: "12px 16px",
               borderRadius: "8px",
-              background: m.role === "user" ? "#333" : "#2a1f1a"
+              background: m.role === "user" ? "#222" : "#1f1a17",
+              border: m.role === "assistant" ? "1px solid #3a2e29" : "none",
+              color: m.role === "assistant" ? "#E6D3C3" : "#fff"
             }}
             dangerouslySetInnerHTML={{
               __html: m.content
@@ -94,15 +113,13 @@ export default function ChatUI() {
         ))}
       </div>
 
-      {/* ----------------------------- */}
-      {/* INPUT AREA */}
-      {/* ----------------------------- */}
+      {/* INPUT BAR */}
       <div
         style={{
           display: "flex",
           gap: "12px",
           marginTop: "20px",
-          maxWidth: "700px",
+          maxWidth: "900px",
           marginLeft: "auto",
           marginRight: "auto"
         }}
@@ -110,7 +127,7 @@ export default function ChatUI() {
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask the BotFather anything…"
+          placeholder="Ask Botfather anything..."
           style={{
             flex: 1,
             padding: "14px",
@@ -124,8 +141,8 @@ export default function ChatUI() {
         <button
           onClick={sendMessage}
           style={{
-            background: "#5a4638",
-            color: "white",
+            background: "#B28055",
+            color: "black",
             borderRadius: "8px",
             padding: "14px 20px",
             border: "none",
