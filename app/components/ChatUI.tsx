@@ -7,113 +7,115 @@ import remarkGfm from "remark-gfm";
 type Message = { role: "user" | "assistant"; content: string };
 
 export default function ChatUI() {
+  console.log("CHATUI LOADED"); // <- Verify this shows in browser console
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Welcome message on mount (client-side)
+  // 1) Welcome message on mount (client-side)
   useEffect(() => {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          `“Hi, I am the BotFather. I'm gonna give you a bot you can't refuse.”\n\n` +
-          `*Say hi to begin — or ask me anything.*`
-      }
-    ]);
-  }, []);
+    // If messages already present (hot reload), don't re-add welcome.
+    if (messages.length === 0) {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            `“Hi, I am the BotFather. I'm gonna give you a bot you can't refuse.”\n\n` +
+            `I speak with calm authority. Ask me anything.`
+        }
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run only once
 
-  // Scroll to bottom on new message
+  // 2) Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // 3) Send message -> API call
   async function handleSend() {
-    const trimmed = input.trim();
-    if (!trimmed || isSending) return;
+    const text = input.trim();
+    if (!text || isSending) return;
 
-    const updated = [...messages, { role: "user", content: trimmed }];
-    setMessages(updated);
+    // append user message locally (optimistic)
+    const newHistory = [...messages, { role: "user", content: text }];
+    setMessages(newHistory);
     setInput("");
     setIsSending(true);
 
     try {
-      const res = await fetch("/api/rag", {
+      const r = await fetch("/api/rag", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: trimmed,
-          messages: updated
-        })
+        body: JSON.stringify({ query: text, messages: newHistory })
       });
 
-      const payload = await res.json();
-      const assistantText = payload?.answer || payload?.error || "Sorry, an error occurred.";
+      const data = await r.json();
+      const answer = data?.answer ?? data?.error ?? "Sorry — something went wrong.";
 
-      setMessages((m) => [...m, { role: "assistant", content: assistantText }]);
+      // Ensure we preserve blank-line separation in display:
+      // The backend is instructed to put blank lines between bullets/paragraphs.
+      setMessages((m) => [...m, { role: "assistant", content: String(answer) }]);
     } catch (err: any) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: `Error: ${err?.message || "unknown error"}` }
+        { role: "assistant", content: `Error: ${err?.message ?? "network error"}` }
       ]);
     } finally {
       setIsSending(false);
     }
   }
 
-  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   }
 
+  // Helper - convert Markdown newlines to visible spacing is handled by react-markdown.
+  // We do not need to dangerouslySetInnerHTML — react-markdown renders correctly.
   return (
     <div style={styles.app}>
       <h1 style={styles.title}>BOTFATHER</h1>
 
       <div style={styles.container}>
         <div style={styles.chatWindow} ref={scrollRef}>
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              style={{
-                ...styles.message,
-                ...(msg.role === "assistant" ? styles.assistantMsg : styles.userMsg)
-              }}
-            >
-              <div style={styles.markdownWrapper}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    // Small tweak: render code blocks and tables with nicer defaults
-                    table: ({ node, ...props }) => (
-                      <table className="bot-table" {...(props as any)} />
-                    ),
-                    th: ({ node, ...props }) => <th {...(props as any)} />,
-                    td: ({ node, ...props }) => <td {...(props as any)} />
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
+          {messages.map((m, i) => {
+            const isAssistant = m.role === "assistant";
+            return (
+              <div
+                key={i}
+                style={{
+                  ...styles.bubble,
+                  ...(isAssistant ? styles.assistantBubble : styles.userBubble)
+                }}
+              >
+                <div style={styles.markdownWrapper}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.content}
+                  </ReactMarkdown>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div style={styles.controls}>
           <input
+            aria-label="chat-input"
+            placeholder="Ask Botfather anything..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Ask Botfather anything..."
+            onKeyDown={handleKeyDown}
             style={styles.input}
-            aria-label="Chat input"
           />
-          <button onClick={handleSend} style={styles.button} disabled={isSending}>
+          <button onClick={handleSend} disabled={isSending} style={styles.button}>
             {isSending ? "Sending…" : "Send"}
           </button>
         </div>
@@ -125,42 +127,35 @@ export default function ChatUI() {
         </div>
       </div>
 
-      {/* Markdown + table styling for premium look */}
+      {/* Inline premium markdown/table styling */}
       <style jsx>{`
         .bot-table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 8px;
-          margin-bottom: 8px;
+          margin: 8px 0;
           font-size: 0.95rem;
         }
         .bot-table th,
         .bot-table td {
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255,255,255,0.06);
           padding: 8px 10px;
           text-align: left;
-          vertical-align: middle;
-          white-space: nowrap; /* encourage single-line cells as preferred */
+          white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .bot-table thead th {
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(255,255,255,0.03);
           font-weight: 600;
         }
-        /* nice striped rows */
         .bot-table tr:nth-child(even) td {
-          background: rgba(255, 255, 255, 0.01);
+          background: rgba(255,255,255,0.01);
         }
-        /* code blocks */
         pre {
           background: #0f0f0f;
           border-radius: 6px;
           padding: 10px;
           overflow: auto;
-        }
-        code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace;
         }
       `}</style>
     </div>
@@ -173,7 +168,8 @@ const styles: { [k: string]: React.CSSProperties } = {
     minHeight: "100vh",
     color: "#fff",
     padding: 20,
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial"
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial"
   },
   title: {
     textAlign: "center",
@@ -187,7 +183,7 @@ const styles: { [k: string]: React.CSSProperties } = {
     maxWidth: 1000,
     margin: "0 auto",
     display: "flex",
-    flexDirection: "column" as const
+    flexDirection: "column"
   },
   chatWindow: {
     background: "#0f0f0f",
@@ -195,29 +191,30 @@ const styles: { [k: string]: React.CSSProperties } = {
     borderRadius: 12,
     padding: 18,
     height: "68vh",
-    overflowY: "auto" as const,
+    overflowY: "auto",
     boxShadow: "0 6px 20px rgba(0,0,0,0.6)"
   },
-  message: {
+  bubble: {
     maxWidth: "100%",
     padding: 12,
     borderRadius: 10,
     marginBottom: 14,
     display: "block"
   },
-  assistantMsg: {
+  assistantBubble: {
     background: "#1b1716",
     color: "#f3f2f1",
     alignSelf: "flex-start"
   },
-  userMsg: {
+  userBubble: {
     background: "#8C5734",
     color: "#111",
     alignSelf: "flex-end"
   },
   markdownWrapper: {
     fontSize: 15,
-    lineHeight: 1.6
+    lineHeight: 1.6,
+    whiteSpace: "pre-wrap"
   },
   controls: {
     display: "flex",
@@ -244,6 +241,6 @@ const styles: { [k: string]: React.CSSProperties } = {
   },
   footer: {
     marginTop: 10,
-    textAlign: "center" as const
+    textAlign: "center"
   }
 };
