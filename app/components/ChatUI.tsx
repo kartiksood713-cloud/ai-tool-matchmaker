@@ -3,14 +3,7 @@
 import { useState } from "react";
 
 export default function ChatUI() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hi, I am the BotFather… and I'm gonna give you a bot you can't refuse."
-    }
-  ]);
-
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
   const sendMessage = async () => {
@@ -59,6 +52,30 @@ export default function ChatUI() {
           overflowY: "scroll"
         }}
       >
+
+        {/* ----------------------------- */}
+        {/* WELCOME MESSAGE (STATIC) */}
+        {/* ----------------------------- */}
+        <div
+          style={{
+            marginBottom: "25px",
+            padding: "20px",
+            borderRadius: "8px",
+            background: "#2a1f1a",
+            border: "1px solid #3b2e26",
+            fontSize: "1.1rem",
+            lineHeight: "1.6"
+          }}
+        >
+          <strong>BotFather:</strong><br /><br />
+          “My friend… welcome.  
+          I am the BotFather.  
+          And I’m gonna give you a bot you can’t refuse.”
+        </div>
+
+        {/* ----------------------------- */}
+        {/* CHAT MESSAGES */}
+        {/* ----------------------------- */}
         {messages.map((m, i) => (
           <div
             key={i}
@@ -77,6 +94,9 @@ export default function ChatUI() {
         ))}
       </div>
 
+      {/* ----------------------------- */}
+      {/* INPUT AREA */}
+      {/* ----------------------------- */}
       <div
         style={{
           display: "flex",
