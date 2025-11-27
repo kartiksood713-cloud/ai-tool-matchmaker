@@ -31,17 +31,35 @@ export async function POST(req: Request) {
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
     const pine = await index.query({
-      vector: embed.data[0].embedding,
-      topK: 5,
-      includeMetadata: true,
-    });
+  vector: embed.data[0].embedding,
+  topK: 5,
+  includeMetadata: true,
+  namespace: "default",  // <-- if you used another, replace: e.g. "ai-tools"
+});
 
-    const csvBullets = pine.matches
-      .map((m: any) => {
-        const md = m.metadata;
-        return `• ${md.Chatbot_Name || "Tool"} — ${md.UseCase || md.Description || "Relevant"}`;
-      })
-      .join("\n\n");
+   const csvBullets = pine.matches
+  .map((m: any) => {
+    const md = m.metadata || {};
+
+    const name =
+      md.Chatbot_Name ||
+      md.name ||
+      md.tool_name ||
+      md.Tool ||
+      "Tool";
+
+    const desc =
+      md.UseCase ||
+      md.use_case ||
+      md.Description ||
+      md.description ||
+      md.summary ||
+      "Relevant";
+
+    return `• ${name} — ${desc}`;
+  })
+  .join("\n\n");
+
 
     // --------------------------------------------------
     // 2. EXA Search
@@ -113,15 +131,18 @@ ${exaBullets}
     // --------------------------------------------------
     // 4. CONVERSATIONAL CHAT COMPLETION (FIXED)
     // --------------------------------------------------
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...(messages || []),
-        { role: "user", content: query },
-      ],
-      temperature: 0.6,
-    });
+const completion = await openai.chat.completions.create({
+  model: "gpt-4.1-mini",
+  messages: [
+    { role: "system", content: systemPrompt },
+    ...((messages || []).map(m => ({
+      role: m.role,
+      content: m.content
+    }))),
+    { role: "user", content: query }
+  ],
+  temperature: 0.6,
+});
 
     return NextResponse.json({
       answer: completion.choices[0].message?.content,
