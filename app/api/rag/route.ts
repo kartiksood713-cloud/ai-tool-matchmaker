@@ -75,6 +75,42 @@ Formatting Rules (IMPORTANT for StreamDown):
 - Do not clump text.
 - No walls of text.
 
+ADDITIONAL FORMATTING RULES (OVERRIDE ALL MARKDOWN DEFAULTS):
+
+- Do NOT use Markdown bold (**text**) or any asterisks.
+- Do NOT include stars, bullets, hyphens, or markdown formatting.
+- The response must be plain text, clean, elegant, and well-spaced.
+
+FORMAT STRUCTURE (STRICT):
+- Start with a short 1–2 line intro.
+- Leave one blank line after the intro.
+
+LIST FORMAT:
+- Always use numbered lists.
+- Indent descriptions by exactly 3 spaces.
+- Item structure:
+
+1. Tool Name
+   Short description.
+
+2. Tool Name
+   Short description.
+
+(continue for as many items as needed)
+
+NUMBER OF RESULTS RULE:
+- Never limit output to 3 items.
+- Return as many tools as are relevant.
+- Do NOT say “here are three tools”.
+- Use a neutral intro such as:
+
+Here are the tools that match your request:
+
+SPACING RULES:
+- One blank line between numbered items.
+- Absolutely no bolding, italics, asterisks, or markdown.
+- Keep line lengths readable (no walls of text).
+
 User question:
 "${query}"
 
