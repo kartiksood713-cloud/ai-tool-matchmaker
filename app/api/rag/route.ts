@@ -31,34 +31,33 @@ export async function POST(req: Request) {
     const index = pinecone.index(process.env.PINECONE_INDEX!);
 
     const pine = await index.query({
-  vector: embed.data[0].embedding,
-  topK: 5,
-  includeMetadata: true,
-});
+      vector: embed.data[0].embedding,
+      topK: 5,
+      includeMetadata: true,
+    });
 
-   const csvBullets = pine.matches
-  .map((m: any) => {
-    const md = m.metadata || {};
+    const csvBullets = pine.matches
+      .map((m: any) => {
+        const md = m.metadata || {};
 
-    const name =
-      md.Chatbot_Name ||
-      md.name ||
-      md.tool_name ||
-      md.Tool ||
-      "Tool";
+        const name =
+          md.Chatbot_Name ||
+          md.name ||
+          md.tool_name ||
+          md.Tool ||
+          "Tool";
 
-    const desc =
-      md.UseCase ||
-      md.use_case ||
-      md.Description ||
-      md.description ||
-      md.summary ||
-      "Relevant";
+        const desc =
+          md.UseCase ||
+          md.use_case ||
+          md.Description ||
+          md.description ||
+          md.summary ||
+          "Relevant";
 
-    return `• ${name} — ${desc}`;
-  })
-  .join("\n\n");
-
+        return `• ${name} — ${desc}`;
+      })
+      .join("\n\n");
 
     // --------------------------------------------------
     // 2. EXA Search
@@ -77,28 +76,61 @@ export async function POST(req: Request) {
       .join("\n\n");
 
     // --------------------------------------------------
-    // 3. SYSTEM PROMPT (Godfather + formatting rules)
+    // 3. SYSTEM PROMPT (UPDATED WITH INTENT SWITCHING)
     // --------------------------------------------------
     const systemPrompt = `
-You are The BotFather. Speak in a calm, slow, powerful Godfather tone.
-Never comedic. Never exaggerated. Always elegant.
+You are The BotFather. Speak in a calm, slow, powerful, elegant Godfather tone—never comedic, never exaggerated.
+
+You operate in TWO MODES depending on the user's intent.
+
+==============================================================
+MODE A — CONVERSATIONAL MODE (DEFAULT)
+==============================================================
+Trigger this mode when:
+- the user greets you ("hi", "hello", "hey", etc)
+- the user is making small talk
+- the user asks personal questions
+- the user asks about feelings, thoughts, or general life topics
+- the user is NOT asking for tools, AI, apps, software, or recommendations
+
+In this mode:
+- Be fully conversational.
+- No lists.
+- No structure.
+- No formatting limits.
+- Just respond naturally in a soft Godfather tone.
+
+
+==============================================================
+MODE B — TOOL / AI RECOMMENDATION MODE (STRUCTURED)
+==============================================================
+Trigger this mode when the user asks for:
+- tools
+- AI
+- apps
+- recommendations
+- “give me…”
+- “best…”
+- “which tool…”
+- “find me…”
+- anything requiring a list of AI/tools/solutions
+
+In this mode follow these rules *strictly*:
 
 Do NOT use:
 - bold
 - italics
 - asterisks
 - markdown lists
-- hyphen bullets
+- bullets
 
 FORMAT RULES:
-- Plain text only.
-- Numbered list only.
-- Each item spaced by exactly one blank line.
-- Each description indented exactly 3 spaces.
-- Short, clean, elegant responses.
-- No walls of text.
-- No limiting number of tools.
-- Always conversational — respond directly to the user's message, then list tools.
+- Plain text only
+- Numbered list only
+- Each item separated by 1 blank line
+- Each description indented exactly 3 spaces
+- Keep descriptions short and elegant
+- No walls of text
 
 STRUCTURE:
 
@@ -114,9 +146,15 @@ Here are the tools that match your request:
 2. Tool Name
    Short description.
 
+3. Tool Name
+   Short description.
+
 (blank line)
+
 End with a calm Godfather-style closing line.
 
+
+==============================================================
 USER MESSAGE:
 "${query}"
 
@@ -128,20 +166,20 @@ ${exaBullets}
 `;
 
     // --------------------------------------------------
-    // 4. CONVERSATIONAL CHAT COMPLETION (FIXED)
+    // 4. CONVERSATIONAL CHAT COMPLETION (UNCHANGED)
     // --------------------------------------------------
-const completion = await openai.chat.completions.create({
-  model: "gpt-4.1-mini",
-  messages: [
-    { role: "system", content: systemPrompt },
-    ...((messages || []).map(m => ({
-      role: m.role,
-      content: m.content
-    }))),
-    { role: "user", content: query }
-  ],
-  temperature: 0.6,
-});
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...((messages || []).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))),
+        { role: "user", content: query },
+      ],
+      temperature: 0.6,
+    });
 
     return NextResponse.json({
       answer: completion.choices[0].message?.content,
