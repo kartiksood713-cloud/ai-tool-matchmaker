@@ -34,7 +34,6 @@ export async function POST(req: Request) {
   vector: embed.data[0].embedding,
   topK: 5,
   includeMetadata: true,
-  namespace: "default",  // <-- if you used another, replace: e.g. "ai-tools"
 });
 
    const csvBullets = pine.matches
